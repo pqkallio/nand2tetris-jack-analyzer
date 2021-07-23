@@ -5,16 +5,14 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"reflect"
 	"strings"
 	"unicode"
 )
 
 type Service struct {
 	f  *os.File
-	t  Terminal
-	h  []Terminal
-	hp int
+	ts []Terminal
+	tp int
 	b  []byte
 	c  bool
 }
@@ -22,7 +20,6 @@ type Service struct {
 func New(f *os.File) *Service {
 	return &Service{
 		f,
-		Terminal{},
 		[]Terminal{},
 		-1,
 		make([]byte, 1),
@@ -31,17 +28,16 @@ func New(f *os.File) *Service {
 }
 
 func (t *Service) Token() Terminal {
-	return t.t
+	return t.ts[t.tp]
 }
 
 func (t *Service) Advance() {
-	if reflect.DeepEqual(Terminal{}, t.t) || t.c {
-		if t.hp != len(t.h)-1 {
-			t.t = t.h[t.hp]
-			t.hp += 1
+	if len(t.ts) == 0 || t.c {
+		if t.tp != len(t.ts)-1 {
+			t.tp += 1
 		} else {
-			t.t = t.readNextToken()
-			t.addToHistory(t.t)
+			tk := t.readNextToken()
+			t.addToken(tk)
 		}
 		t.c = false
 	}
@@ -49,20 +45,21 @@ func (t *Service) Advance() {
 
 func (t *Service) ConsumeToken() Terminal {
 	t.c = true
-	return t.t
+	return t.ts[t.tp]
 }
 
-func (s *Service) addToHistory(t Terminal) {
-	s.h = append(s.h, t)
-	s.hp += 1
+func (s *Service) addToken(t Terminal) {
+	s.ts = append(s.ts, t)
+	s.tp += 1
 }
 
 func (s *Service) Rewind(nSteps int) error {
-	if nSteps > s.hp {
+	if nSteps > s.tp {
 		return fmt.Errorf("too many steps to go back")
 	}
 
-	s.hp -= nSteps
+	s.tp -= nSteps
+	s.c = false
 
 	return nil
 }

@@ -29,9 +29,7 @@ func (s *Service) Compile() error {
 func (s *Service) compileClass(t tokenizer.Terminal) error {
 	tag := "class"
 
-	s.f.Write([]byte(s.d))
 	s.f.Write(s.openingTag(tag))
-
 	s.indent()
 
 	s.f.Write(s.keyword(t))
@@ -44,7 +42,7 @@ func (s *Service) compileClass(t tokenizer.Terminal) error {
 	s.f.Write(s.identifier(t))
 
 	t, err = s.eatSymbol("{")
-	if err == nil {
+	if err != nil {
 		return err
 	}
 
@@ -65,7 +63,7 @@ func (s *Service) compileClass(t tokenizer.Terminal) error {
 	}
 
 	t, err = s.eatSymbol("}")
-	if err == nil {
+	if err != nil {
 		return err
 	}
 
@@ -137,7 +135,7 @@ func (s *Service) compileSubroutineDec() error {
 func (s *Service) compileSubroutineBody() error {
 	tag := "subroutineBody"
 
-	s.openingTag(tag)
+	s.f.Write(s.openingTag(tag))
 	s.indent()
 
 	t, err := s.eatSymbol("{")
@@ -145,7 +143,7 @@ func (s *Service) compileSubroutineBody() error {
 		return err
 	}
 
-	s.symbol(t)
+	s.f.Write(s.symbol(t))
 
 	for {
 		err = s.compileVarDec()
@@ -159,8 +157,15 @@ func (s *Service) compileSubroutineBody() error {
 		return err
 	}
 
+	t, err = s.eatSymbol("}")
+	if err != nil {
+		return err
+	}
+
+	s.f.Write(s.symbol(t))
+
 	s.deindent()
-	s.closingTag(tag)
+	s.f.Write(s.closingTag(tag))
 
 	return nil
 }
@@ -168,7 +173,7 @@ func (s *Service) compileSubroutineBody() error {
 func (s *Service) compileStatements() error {
 	tag := "statements"
 
-	s.openingTag(tag)
+	s.f.Write(s.openingTag(tag))
 	s.indent()
 
 	for {
@@ -196,7 +201,7 @@ func (s *Service) compileStatements() error {
 	}
 
 	s.deindent()
-	s.closingTag(tag)
+	s.f.Write(s.closingTag(tag))
 
 	return nil
 }
@@ -204,7 +209,7 @@ func (s *Service) compileStatements() error {
 func (s *Service) compileExpressionList() error {
 	tag := "expressionList"
 
-	s.openingTag(tag)
+	s.f.Write(s.openingTag(tag))
 	s.indent()
 
 	_, err := s.eatSymbol(")")
@@ -222,20 +227,17 @@ func (s *Service) compileExpressionList() error {
 
 			s.f.Write(s.symbol(t))
 		}
+	} else {
+		s.t.Rewind(0)
 	}
 
 	s.deindent()
-	s.closingTag(tag)
+	s.f.Write(s.closingTag(tag))
 
 	return nil
 }
 
 func (s *Service) compileSubroutineCall() error {
-	tag := "subroutineCall"
-
-	s.openingTag(tag)
-	s.indent()
-
 	t, err := s.eatIdentifier()
 	if err != nil {
 		return err
@@ -281,16 +283,13 @@ func (s *Service) compileSubroutineCall() error {
 		s.f.Write(s.symbol(t))
 	}
 
-	s.deindent()
-	s.closingTag(tag)
-
 	return nil
 }
 
 func (s *Service) compileTerm() error {
 	tag := "term"
 
-	s.openingTag(tag)
+	s.f.Write(s.openingTag(tag))
 	s.indent()
 
 	t := s.eat()
@@ -362,7 +361,7 @@ func (s *Service) compileTerm() error {
 	}
 
 	s.deindent()
-	s.closingTag(tag)
+	s.f.Write(s.closingTag(tag))
 
 	return nil
 }
@@ -370,7 +369,7 @@ func (s *Service) compileTerm() error {
 func (s *Service) compileExpression() error {
 	tag := "expression"
 
-	s.openingTag(tag)
+	s.f.Write(s.openingTag(tag))
 	s.indent()
 
 	err := s.compileTerm()
@@ -389,7 +388,7 @@ func (s *Service) compileExpression() error {
 	}
 
 	s.deindent()
-	s.closingTag(tag)
+	s.f.Write(s.closingTag(tag))
 
 	return nil
 }
@@ -397,14 +396,19 @@ func (s *Service) compileExpression() error {
 func (s *Service) compileReturnStatement(t tokenizer.Terminal) error {
 	tag := "returnStatement"
 
-	s.openingTag(tag)
+	s.f.Write(s.openingTag(tag))
 	s.indent()
 
 	s.f.Write(s.keyword(t))
 
-	s.compileExpression()
+	_, err := s.eatSymbol(";")
+	if err != nil {
+		s.compileExpression()
+	} else {
+		s.t.Rewind(0)
+	}
 
-	t, err := s.eatSymbol(";")
+	t, err = s.eatSymbol(";")
 	if err != nil {
 		return err
 	}
@@ -412,7 +416,7 @@ func (s *Service) compileReturnStatement(t tokenizer.Terminal) error {
 	s.f.Write(s.symbol(t))
 
 	s.deindent()
-	s.closingTag(tag)
+	s.f.Write(s.closingTag(tag))
 
 	return nil
 }
@@ -420,15 +424,25 @@ func (s *Service) compileReturnStatement(t tokenizer.Terminal) error {
 func (s *Service) compileDoStatement(t tokenizer.Terminal) error {
 	tag := "doStatement"
 
-	s.openingTag(tag)
+	s.f.Write(s.openingTag(tag))
 	s.indent()
 
 	s.f.Write(s.keyword(t))
 
-	// compileSubroutineCall
+	err := s.compileSubroutineCall()
+	if err != nil {
+		return err
+	}
+
+	t, err = s.eatSymbol(";")
+	if err != nil {
+		return err
+	}
+
+	s.f.Write(s.symbol(t))
 
 	s.deindent()
-	s.closingTag(tag)
+	s.f.Write(s.closingTag(tag))
 
 	return nil
 }
@@ -436,7 +450,7 @@ func (s *Service) compileDoStatement(t tokenizer.Terminal) error {
 func (s *Service) compileWhileStatement(t tokenizer.Terminal) error {
 	tag := "whileStatement"
 
-	s.openingTag(tag)
+	s.f.Write(s.openingTag(tag))
 	s.indent()
 
 	s.f.Write(s.keyword(t))
@@ -480,7 +494,7 @@ func (s *Service) compileWhileStatement(t tokenizer.Terminal) error {
 	s.f.Write(s.symbol(t))
 
 	s.deindent()
-	s.closingTag(tag)
+	s.f.Write(s.closingTag(tag))
 
 	return nil
 
@@ -489,7 +503,7 @@ func (s *Service) compileWhileStatement(t tokenizer.Terminal) error {
 func (s *Service) compileIfStatement(t tokenizer.Terminal) error {
 	tag := "ifStatement"
 
-	s.openingTag(tag)
+	s.f.Write(s.openingTag(tag))
 	s.indent()
 
 	s.f.Write(s.keyword(t))
@@ -548,7 +562,7 @@ func (s *Service) compileIfStatement(t tokenizer.Terminal) error {
 			return err
 		}
 
-		t, err = s.eatSymbol("{")
+		t, err = s.eatSymbol("}")
 		if err != nil {
 			return err
 		}
@@ -557,7 +571,7 @@ func (s *Service) compileIfStatement(t tokenizer.Terminal) error {
 	}
 
 	s.deindent()
-	s.closingTag(tag)
+	s.f.Write(s.closingTag(tag))
 
 	return nil
 }
@@ -565,7 +579,7 @@ func (s *Service) compileIfStatement(t tokenizer.Terminal) error {
 func (s *Service) compileLetStatement(t tokenizer.Terminal) error {
 	tag := "letStatement"
 
-	s.openingTag(tag)
+	s.f.Write(s.openingTag(tag))
 	s.indent()
 
 	s.f.Write(s.keyword(t))
@@ -618,7 +632,7 @@ func (s *Service) compileLetStatement(t tokenizer.Terminal) error {
 	s.f.Write(s.symbol(t))
 
 	s.deindent()
-	s.closingTag(tag)
+	s.f.Write(s.closingTag(tag))
 
 	return nil
 }
@@ -628,25 +642,27 @@ func (s *Service) compileVarDec() error {
 
 	t, err := s.eatKeyword("var")
 	if err != nil {
-		return nil
+		return err
 	}
 
-	s.openingTag(tag)
+	s.f.Write(s.openingTag(tag))
 	s.indent()
 
-	s.keyword(t)
+	s.f.Write(s.keyword(t))
 
 	t, err = s.eatVarType()
 	if err != nil {
 		return err
 	}
 
-	s.tType(t)
+	s.f.Write(s.tType(t))
 
 	t, err = s.eatIdentifier()
 	if err != nil {
 		return err
 	}
+
+	s.f.Write(s.identifier(t))
 
 	t, err = s.eatSymbol(",", ";")
 	if err != nil {
@@ -654,14 +670,14 @@ func (s *Service) compileVarDec() error {
 	}
 
 	for t.Symbol == "," {
-		s.symbol(t)
+		s.f.Write(s.symbol(t))
 
 		t, err = s.eatIdentifier()
 		if err != nil {
 			return err
 		}
 
-		s.identifier(t)
+		s.f.Write(s.identifier(t))
 
 		t, err = s.eatSymbol(",", ";")
 		if err != nil {
@@ -669,10 +685,10 @@ func (s *Service) compileVarDec() error {
 		}
 	}
 
-	s.symbol(t)
+	s.f.Write(s.symbol(t))
 
 	s.deindent()
-	s.closingTag(tag)
+	s.f.Write(s.closingTag(tag))
 
 	return nil
 }
@@ -680,22 +696,25 @@ func (s *Service) compileVarDec() error {
 func (s *Service) compileParameterList() error {
 	tag := "parameterList"
 
+	s.f.Write(s.openingTag(tag))
+	s.indent()
+
 	t, err := s.eatVarType()
 	if err != nil {
+		s.deindent()
+		s.f.Write(s.closingTag(tag))
+
 		return nil
 	}
 
-	s.openingTag(tag)
-	s.indent()
-
-	s.tType(t)
+	s.f.Write(s.tType(t))
 
 	t, err = s.eatIdentifier()
 	if err != nil {
 		return err
 	}
 
-	s.identifier(t)
+	s.f.Write(s.identifier(t))
 
 	for {
 		t, err = s.eatSymbol(",")
@@ -703,25 +722,25 @@ func (s *Service) compileParameterList() error {
 			break
 		}
 
-		s.symbol(t)
+		s.f.Write(s.symbol(t))
 
 		t, err = s.eatVarType()
 		if err != nil {
 			return err
 		}
 
-		s.tType(t)
+		s.f.Write(s.tType(t))
 
 		t, err = s.eatIdentifier()
 		if err != nil {
 			return err
 		}
 
-		s.identifier(t)
+		s.f.Write(s.identifier(t))
 	}
 
 	s.deindent()
-	s.closingTag(tag)
+	s.f.Write(s.closingTag(tag))
 
 	return nil
 }
@@ -759,22 +778,22 @@ func (s *Service) compileClassVarDec() error {
 	}
 
 	for t.Symbol != ";" {
-		s.symbol(t)
+		s.f.Write(s.symbol(t))
 
 		t, err = s.eatIdentifier()
 		if err != nil {
 			return err
 		}
 
-		s.identifier(t)
+		s.f.Write(s.identifier(t))
 
-		t, err = s.eatSymbol()
+		t, err = s.eatSymbol(",", ";")
 		if err != nil {
 			return err
 		}
 	}
 
-	s.symbol(t)
+	s.f.Write(s.symbol(t))
 
 	s.deindent()
 	s.f.Write(s.closingTag(tag))
@@ -783,12 +802,12 @@ func (s *Service) compileClassVarDec() error {
 }
 
 func (s *Service) indent() {
-	s.d = s.d + "\t"
+	s.d = s.d + "  "
 }
 
 func (s *Service) deindent() {
-	if len(s.d) > 0 {
-		s.d = s.d[:len(s.d)-1]
+	if len(s.d) > 1 {
+		s.d = s.d[:len(s.d)-2]
 	}
 }
 
@@ -799,14 +818,6 @@ func (s *Service) eat() tokenizer.Terminal {
 
 func (s *Service) eatBinOp() (tokenizer.Terminal, error) {
 	return s.eatSymbol("+", "-", "*", "/", "&", "|", "<", ">", "=")
-}
-
-func (s *Service) eatUnOp() (tokenizer.Terminal, error) {
-	return s.eatSymbol("~", "-")
-}
-
-func (s *Service) eatKeywordConst() (tokenizer.Terminal, error) {
-	return s.eatKeyword("true", "false", "null", "this")
 }
 
 func (s *Service) eatSymbol(ss ...string) (tokenizer.Terminal, error) {
@@ -862,7 +873,7 @@ func (s *Service) eatReturnType() (tokenizer.Terminal, error) {
 }
 
 func (s *Service) symbol(t tokenizer.Terminal) []byte {
-	return s.tagged("symbol", t.Symbol)
+	return s.tagged("symbol", getEscapedSymbol(t.Symbol))
 }
 
 func (s *Service) keyword(t tokenizer.Terminal) []byte {
