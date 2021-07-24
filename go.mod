@@ -1,3 +1,3 @@
-module github.com/pqkallio/nand2tetris-jack-compiler
+module github.com/pqkallio/nand2tetris-jack-analyzer
 
 go 1.16
