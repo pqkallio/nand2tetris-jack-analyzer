@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/pqkallio/nand2tetris-jack-compiler/tokenizer"
+	"github.com/pqkallio/nand2tetris-jack-analyzer/tokenizer"
 )
 
 type Service struct {

@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/pqkallio/nand2tetris-jack-compiler/compilationengine"
-	"github.com/pqkallio/nand2tetris-jack-compiler/tokenizer"
+	"github.com/pqkallio/nand2tetris-jack-analyzer/compilationengine"
+	"github.com/pqkallio/nand2tetris-jack-analyzer/tokenizer"
 )
 
 const (
